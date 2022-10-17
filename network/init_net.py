@@ -41,6 +41,7 @@ def get_diff_feats(ref_imgs_info, depth_in):
     pts_dpt_int = interpolate_feats(depth, pts2d, padding_mode='border', align_corners=True)         # rfn,rfn*h*w,1
     pts_rgb_int = interpolate_feats(imgs, pts2d, padding_mode='border', align_corners=True)          # rfn,rfn*h*w,3
 
+    # print(pts_rgb_int.shape, imgs.shape)
     rgb_diff = torch.abs(pts_rgb_int - imgs.permute(0, 2, 3, 1).reshape(1, rfn * h * w, 3))  # rfn,rfn*h*w,3
 
     pts_dpt_int = torch.clamp(pts_dpt_int, min=1e-5)

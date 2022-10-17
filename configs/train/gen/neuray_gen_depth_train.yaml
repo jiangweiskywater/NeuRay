@@ -12,7 +12,7 @@ fine_dist_decoder_cfg:
 ray_batch_num: 2048
 
 # loss
-loss: [render, depth]
+loss: [render, depth, semantic]
 val_metric: [psnr_ssim, vis_img]
 key_metric_name: psnr_nr_fine
 use_dr_loss: false

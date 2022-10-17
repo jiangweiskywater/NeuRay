@@ -55,6 +55,14 @@ def save_renderings(output_dir, qi, render_info, h, w):
     output_image('nr')
     output_image('nr_fine')
 
+    def output_sem(suffix):
+        if f'sem_logits_{suffix}' in render_info:
+            render_image = color_map_backward(render_info[f'sem_logits_{suffix}'].cpu().numpy().reshape([h, w, 1]))
+            imsave(f'{output_dir}/{qi}-sem_{suffix}.jpg', render_image)
+    
+    output_sem('nr')
+    output_sem('nr_fine')
+
 def save_depth(output_dir, qi, render_info, h, w, depth_range):
     suffix='fine'
     if f'render_depth_{suffix}' in render_info:
@@ -151,6 +159,11 @@ def render_video_gen(database_name: str,
             Path(gt_dir).mkdir(exist_ok=True, parents=True)
             if not (Path(gt_dir)/f'{qi}.jpg').exists():
                 imsave(f'{gt_dir}/{qi}.jpg',database.get_image(render_ids[qi]))
+            
+            gt_sem_dir = f'data/render/{database_name}/gt_sem'
+            Path(gt_sem_dir).mkdir(exist_ok=True, parents=True)
+            if not (Path(gt_dir)/f'{qi}_sem.jpg').exists():
+                imsave(f'{gt_dir}/{qi}_sem.jpg',database.get_label(render_ids[qi]))
 
 def render_video_ft(database_name, cfg_fn, pose_type, pose_fn, render_depth=False, ray_num=4096, rb=0, re=-1):
     # init network

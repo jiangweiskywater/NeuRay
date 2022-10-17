@@ -27,8 +27,36 @@ class Evaluator:
             score = float(self.loss_fn_alex(gt_img_th, pr_img_th).flatten()[0].cpu().numpy())
         return float(psnr), float(ssim), score
 
+    def calculate_segmentation_metrics(true_labels, predicted_labels, number_classes, ignore_label):
+        if (true_labels == ignore_label).all():
+            return [0]*4
 
-    def eval(self, dir_gt, dir_pr):
+        true_labels = true_labels.flatten()
+        predicted_labels = predicted_labels.flatten()
+        valid_pix_ids = true_labels!=ignore_label
+        predicted_labels = predicted_labels[valid_pix_ids] 
+        true_labels = true_labels[valid_pix_ids]
+
+        conf_mat = confusion_matrix(true_labels, predicted_labels, labels=list(range(number_classes)))
+        norm_conf_mat = np.transpose(
+            np.transpose(conf_mat) / conf_mat.astype(np.float).sum(axis=1))
+
+        missing_class_mask = np.isnan(norm_conf_mat.sum(1)) # missing class will have NaN at corresponding class
+        exsiting_class_mask = ~ missing_class_mask
+
+        class_average_accuracy = nanmean(np.diagonal(norm_conf_mat))
+        total_accuracy = (np.sum(np.diagonal(conf_mat)) / np.sum(conf_mat))
+        ious = np.zeros(number_classes)
+        for class_id in range(number_classes):
+            ious[class_id] = (conf_mat[class_id, class_id] / (
+                    np.sum(conf_mat[class_id, :]) + np.sum(conf_mat[:, class_id]) -
+                    conf_mat[class_id, class_id])) 
+        miou = nanmean(ious)
+        miou_valid_class = np.mean(ious[exsiting_class_mask])
+        return miou, miou_valid_class, total_accuracy, class_average_accuracy, ious
+
+
+    def eval(self, dir_gt, dir_pr, dir_gt_sem):
         results=[]
         num = len(os.listdir(dir_gt))
         for k in tqdm(range(0, num)):
@@ -41,6 +69,22 @@ class Evaluator:
 
         msg=f'psnr {psnr:.4f} ssim {ssim:.4f} lpips {lpips_score:.4f}'
         print(msg)
+
+        sem_results=[]
+        num = len(os.listdir(dir_gt_sem))
+        for k in tqdm(range(0, num)):
+            pr_sem = imread(f'{dir_pr}/{k}-sem_nr_fine.jpg')
+            gt_sem = imread(f'{dir_gt_sem}/{k}_sem.jpg')
+
+            miou, miou_valid_class, total_accuracy, class_average_accuracy, ious = self.calculate_segmentation_metrics(gt_sem, pr_sem, 40, -1)
+            sem_results.append([miou, miou_valid_class, total_accuracy, class_average_accuracy])
+        
+        miou, miou_valid_class, total_accuracy, class_average_accuracy= np.mean(np.asarray(sem_results),0)
+
+        msg2=f'miou {miou:.4f} miou_valid_class {miou_valid_class:.4f} total_accuracy {total_accuracy:.4f} class_average_accuracy {class_average_accuracy:.4f}'
+        print(msg2)
+
+
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()

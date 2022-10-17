@@ -2,6 +2,7 @@ import numpy as np
 import torch
 
 from utils.base_utils import color_map_forward, pad_img_end
+from dataset.database import *
 
 def random_crop(ref_imgs_info, que_imgs_info, target_size):
     imgs = ref_imgs_info['imgs']
@@ -78,13 +79,16 @@ def build_imgs_info(database, ref_ids, pad_interval=-1, is_aligned=True, align_d
     if not is_aligned:
         assert has_depth
         rfn = len(ref_ids)
-        ref_imgs, ref_masks, ref_depths, shapes = [], [], [], []
+        ref_imgs, ref_masks, ref_depths, shapes, ref_labels = [], [], [], [], []
         for ref_id in ref_ids:
             img = database.get_image(ref_id)
             shapes.append([img.shape[0], img.shape[1]])
             ref_imgs.append(img)
             ref_masks.append(database.get_mask(ref_id))
             ref_depths.append(database.get_depth(ref_id))
+            
+            if( isinstance(database, ScannetDatabase) ):
+                ref_labels.append(database.get_label(ref_id))
 
         shapes = np.asarray(shapes)
         th, tw = np.max(shapes, 0)
@@ -92,12 +96,22 @@ def build_imgs_info(database, ref_ids, pad_interval=-1, is_aligned=True, align_d
             ref_imgs[rfi] = pad_img_end(ref_imgs[rfi], th, tw, 'reflect')
             ref_masks[rfi] = pad_img_end(ref_masks[rfi][:, :, None], th, tw, 'constant', 0)[..., 0]
             ref_depths[rfi] = pad_img_end(ref_depths[rfi][:, :, None], th, tw, 'constant', 0)[..., 0]
+            if( isinstance(database, ScannetDatabase) ): 
+                ref_labels[rfi] = pad_img_end(ref_labels[rfi][:, :, None], th, tw, 'constant', 0)[..., 0]
+
         ref_imgs = color_map_forward(np.stack(ref_imgs, 0)).transpose([0, 3, 1, 2])
         ref_masks = np.stack(ref_masks, 0)[:, None, :, :]
         ref_depths = np.stack(ref_depths, 0)[:, None, :, :]
+
+        if( isinstance(database, ScannetDatabase) ):
+            ref_labels = np.stack(ref_labels, 0)[:, None, :, :]
     else:
+        ref_labels = []
         ref_imgs = color_map_forward(np.asarray([database.get_image(ref_id) for ref_id in ref_ids])).transpose([0, 3, 1, 2])
         ref_masks =  np.asarray([database.get_mask(ref_id) for ref_id in ref_ids], dtype=np.float32)[:, None, :, :]
+        if( isinstance(database, ScannetDatabase) ):
+            ref_labels = np.asarray([database.get_label(ref_id) for ref_id in ref_ids], dtype=np.float32)[:, None, :, :]
+        
         if has_depth:
             ref_depths = [database.get_depth(ref_id) for ref_id in ref_ids]
             if replace_none_depth:
@@ -113,7 +127,7 @@ def build_imgs_info(database, ref_ids, pad_interval=-1, is_aligned=True, align_d
     if align_depth_range:
         ref_depth_range[:,0]=np.min(ref_depth_range[:,0])
         ref_depth_range[:,1]=np.max(ref_depth_range[:,1])
-    ref_imgs_info = {'imgs': ref_imgs, 'poses': ref_poses, 'Ks': ref_Ks, 'depth_range': ref_depth_range, 'masks': ref_masks}
+    ref_imgs_info = {'imgs': ref_imgs, 'poses': ref_poses, 'Ks': ref_Ks, 'depth_range': ref_depth_range, 'masks': ref_masks, 'labels': ref_labels}
     if has_depth: ref_imgs_info['depth'] = ref_depths
     if pad_interval!=-1:
         ref_imgs_info = pad_imgs_info(ref_imgs_info, pad_interval)

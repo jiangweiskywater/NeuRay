@@ -14,7 +14,7 @@ use_self_hit_prob: true
 validate_initialization: false
 
 # loss
-loss: [render, consist]
+loss: [render, consist, semantic]
 val_metric: [psnr_ssim, vis_img]
 key_metric_name: psnr_nr_fine
 use_nr_fine_loss: true

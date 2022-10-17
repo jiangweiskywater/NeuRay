@@ -131,8 +131,33 @@ class DepthLoss(Loss):
             outputs['loss_depth_fine'] = compute_loss(data_pr['depth_mean_fine'])
         return outputs
 
+class SemanticLoss(Loss):
+    default_cfg={
+    }
+    def __init__(self, cfg):
+        super().__init__(['loss_sem'])
+        self.cfg={**self.default_cfg,**cfg}
+
+    def __call__(self, data_pr, data_gt, step, **kwargs):
+        if 'label' not in data_pr:
+            return {'loss_sem': torch.zeros([1], dtype=torch.float32, device=data_pr['pixel_colors_nr'].device)}
+        sem_logits_nr = data_pr['sem_logits_nr']
+        sem_gt = data_pr['label']
+
+        # compute loss
+        def compute_loss(sem_logits):
+            loss = nn.CrossEntropyLoss(sem_logits, sem_gt-1)
+            return loss
+
+        outputs = {'loss_sem': compute_loss(sem_logits_nr)}
+        if 'sem_logits_nr_fine' in data_pr:
+            outputs['loss_sem_nr_fine'] = compute_loss(data_pr['sem_logits_nr_fine'])
+        return outputs
+
+
 name2loss={
     'render': RenderLoss,
     'depth': DepthLoss,
     'consist': ConsistencyLoss,
+    'semantic': SemanticLoss,
 }

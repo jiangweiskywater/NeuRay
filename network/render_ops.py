@@ -1,5 +1,6 @@
 import torch
 from network.ops import interpolate_feats
+import numpy as np
 
 def coords2rays(coords, poses, Ks):
     """
@@ -136,7 +137,8 @@ def project_points_dict(ref_imgs_info, que_pts):
     rfn, _, h, w = ref_imgs_info['imgs'].shape
     prj_ray_feats = interpolate_feature_map(ref_imgs_info['ray_feats'], prj_pts, prj_mask, h, w)
     prj_rgb = interpolate_feature_map(ref_imgs_info['imgs'], prj_pts, prj_mask, h, w)
-    prj_dict = {'dir':prj_dir, 'pts':prj_pts, 'depth':prj_depth, 'mask': prj_mask.float(), 'ray_feats':prj_ray_feats, 'rgb':prj_rgb}
+    tem_pts = np.squeeze(que_pts, 0)
+    prj_dict = {'dir':prj_dir, 'pts':prj_pts, 'pts_3d': torch.cat([tem_pts for i in range(rfn)], -1), 'depth':prj_depth, 'mask': prj_mask.float(), 'ray_feats':prj_ray_feats, 'rgb':prj_rgb}
 
     # post process
     for k, v in prj_dict.items():

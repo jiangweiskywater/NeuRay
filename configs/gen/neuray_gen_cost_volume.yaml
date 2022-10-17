@@ -9,7 +9,7 @@ dist_decoder_cfg:
   use_vis: false
 
 # loss
-loss: [render, depth]
+loss: [render, depth, semantic]
 val_metric: [psnr_ssim, vis_img]
 key_metric_name: psnr_nr_fine
 use_dr_loss: false

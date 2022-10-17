@@ -58,6 +58,80 @@ class BaseDatabase(abc.ABC):
     def get_depth_range(self,img_id):
         pass
 
+
+class ScannetDatabase(BaseDatabase):
+    def __init__(self, database_name):
+        super().__init__(database_name)
+        _, self.scene_name, background_size = database_name.split('/')
+        background, image_size = background_size.split('_')
+        image_size = int(image_size)
+        self.image_size = image_size
+        self.background = background
+        self.root_dir = f'data/scannet/{self.scene_name}'
+        self.ratio = image_size / 1296
+        self.h, self.w = int(self.ratio*972), int(image_size)
+
+        rgb_paths = [x for x in glob.glob(os.path.join(self.root_dir, "color", "*")) if (x.endswith(".jpg") or x.endswith(".png"))]
+        rgb_paths = sorted(rgb_paths)
+
+        self.K=np.loadtxt(f'{self.root_dir}/intrinsic/intrinsic_depth.txt').reshape([4,4])[:3,:3]
+
+        self.img_ids=[]
+        for i, rgb_path in enumerate(rgb_paths):
+            self.img_ids.append(f'{i}')
+        
+        self.img_id2imgs={}
+
+    def get_image(self, img_id):
+        if img_id in self.img_id2imgs:
+            return self.img_id2imgs[img_id]
+        img = imread(os.path.join(self.root_dir,'color',f'{int(img_id)}.jpg'))
+        if self.w != 1296:
+            img = cv2.resize(downsample_gaussian_blur(img, self.ratio), (self.w, self.h), interpolation=cv2.INTER_LINEAR)
+
+        return img
+    
+    def get_K(self, img_id):
+        return self.K.astype(np.float32)
+
+    def get_pose(self, img_id):
+        pose = np.loadtxt(f'{self.root_dir}/pose/{int(img_id)}.txt').reshape([4,4])[:3,:]
+        # R = pose[:3, :3].T
+        # t = R @ -pose[:3, 3:]
+        # return np.concatenate([R,t],-1)
+        pose = pose_inverse(pose)
+        return pose.copy()
+    
+    def get_img_ids(self,check_depth_exist=False):
+        return self.img_ids
+
+    def get_bbox(self, img_id):
+        raise NotImplementedError
+    
+    def get_depth(self,img_id):
+        h, w, _ = self.get_image(img_id).shape
+        img = Image.open(f'{self.root_dir}/depth/{int(img_id)}.png')
+        depth = np.asarray(img, dtype=np.float32)
+        depth = np.ascontiguousarray(depth, dtype=np.float32)
+        depth = cv2.resize(depth, (w, h), interpolation=cv2.INTER_NEAREST)
+        return depth
+    
+    def get_mask(self, img_id):
+        h, w, _ = self.get_image(img_id).shape
+        return np.ones([h,w],np.bool)
+
+    def get_depth_range(self,img_id):
+        return np.asarray((0.1,10.0),np.float32) 
+
+    def get_label(self, img_id):
+        h, w, _ = self.get_image(img_id).shape
+        img = Image.open(f'{self.root_dir}/label/{int(img_id)}.png')
+        label = np.asarray(img, dtype=np.int32)
+        label = np.ascontiguousarray(label)
+        label = cv2.resize(label, (w, h), interpolation=cv2.INTER_NEAREST) 
+        label = label.astype(np.int32)
+        return label
+
 class LLFFColmapDatabase(BaseDatabase):
     def __init__(self, database_name):
         _, self.model_name, self.res_type = database_name.split('/')
@@ -995,6 +1069,7 @@ def parse_database_name(database_name:str)->BaseDatabase:
         'llff_colmap': LLFFColmapDatabase,
         'blended_mvs': BlendedMVSDatabase,
         'example': ExampleDatabase,
+        'scannet': ScannetDatabase,
     }
     database_type = database_name.split('/')[0]
     if database_type in name2database:
@@ -1028,6 +1103,9 @@ def get_database_split(database: BaseDatabase, split_type='val'):
             val_ids = database.get_img_ids()[::8]
             train_ids = [img_id for img_id in database.get_img_ids(check_depth_exist=depth_valid) if img_id not in val_ids]
         elif database_name.startswith('dtu_test'):
+            val_ids = database.get_img_ids()[3:-3:8]
+            train_ids = [img_id for img_id in database.get_img_ids(check_depth_exist=depth_valid) if img_id not in val_ids]
+        elif database_name.startswith('scannet'):
             val_ids = database.get_img_ids()[3:-3:8]
             train_ids = [img_id for img_id in database.get_img_ids(check_depth_exist=depth_valid) if img_id not in val_ids]
         else:

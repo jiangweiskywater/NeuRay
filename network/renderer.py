@@ -156,14 +156,19 @@ class NeuralRayBaseRenderer(nn.Module):
 
     def network_rendering(self, prj_dict, que_dir, is_fine):
         if is_fine:
-            density, colors = self.fine_agg_net(prj_dict, que_dir)
+            density, colors, sem_logits = self.fine_agg_net(prj_dict, que_dir)
         else:
-            density, colors = self.agg_net(prj_dict, que_dir)
+            density, colors, sem_logits = self.agg_net(prj_dict, que_dir)
 
         alpha_values = 1.0 - torch.exp(-torch.relu(density))
         hit_prob = alpha_values2hit_prob(alpha_values)
         pixel_colors = torch.sum(hit_prob.unsqueeze(-1)*colors,2)
-        return hit_prob, colors, pixel_colors
+
+        # logits_2_label = lambda x: torch.argmax(torch.nn.functional.softmax(x, dim=-1),dim=-1)
+        # sem_label = None
+        # if(sem_logits is not None):
+        #     sem_label = logits_2_label(sem_logits)
+        return hit_prob, colors, pixel_colors, sem_logits
 
     def render_by_depth(self, que_depth, que_imgs_info, ref_imgs_info, is_train, is_fine):
         ref_imgs_info = ref_imgs_info.copy()
@@ -175,8 +180,8 @@ class NeuralRayBaseRenderer(nn.Module):
         prj_dict = self.predict_proj_ray_prob(prj_dict, ref_imgs_info, que_dists, is_fine)
         prj_dict = self.get_img_feats(ref_imgs_info, prj_dict)
 
-        hit_prob_nr, colors_nr, pixel_colors_nr = self.network_rendering(prj_dict, que_dir, is_fine)
-        outputs={'pixel_colors_nr': pixel_colors_nr, 'hit_prob_nr': hit_prob_nr}
+        hit_prob_nr, colors_nr, pixel_colors_nr, sem_logits = self.network_rendering(prj_dict, que_dir, is_fine)
+        outputs={'pixel_colors_nr': pixel_colors_nr, 'hit_prob_nr': hit_prob_nr, 'sem_logits_nr': sem_logits}
 
         # direct rendering
         if self.cfg['use_dr_prediction']:
@@ -191,6 +196,10 @@ class NeuralRayBaseRenderer(nn.Module):
         if 'imgs' in que_imgs_info:
             outputs['pixel_colors_gt'] = interpolate_feats(
                 que_imgs_info['imgs'], que_imgs_info['coords'], align_corners=True)
+        
+        if 'label' in que_imgs_info:
+            outputs['label'] = que_imgs_info['label'] 
+                # interpolate_feats(que_imgs_info['label'], que_imgs_info['coords'], align_corners=True)
 
         if self.cfg['use_ray_mask']:
             outputs['ray_mask'] = torch.sum(prj_dict['mask'].int(),0)>self.cfg['ray_mask_view_num'] # qn,rn,dn,1
