@@ -1,0 +1,1 @@
+python3 render.py --cfg configs/gen/neuray_gen_depth.yaml --database scannet/scene0101_03/black_640 --pose_type eval

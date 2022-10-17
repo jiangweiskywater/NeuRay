@@ -337,9 +337,9 @@ class IBRNetWithNeuRay(nn.Module):
         weight0 = torch.sigmoid(self.neuray_fc(neuray_feat)) * weight # [rn,dn,rfn,f]
         mean0, var0 = fused_mean_variance(rgb_feat, weight0)  # [n_rays, n_samples, 1, n_feat]
         mean1, var1 = fused_mean_variance(rgb_feat, weight)  # [n_rays, n_samples, 1, n_feat]
-        globalfeat = torch.cat([mean0, var0, mean1, var1], dim=-1)  # [n_rays, n_samples, 1, 2*n_feat]
+        globalfeat = torch.cat([mean0, var0, mean1, var1], dim=-1)  # [n_rays, n_samples, 1, 4*n_feat]
 
-        x = torch.cat([globalfeat.expand(-1, -1, num_views, -1), rgb_feat, neuray_feat], dim=-1)  # [n_rays, n_samples, n_views, 3*n_feat]
+        x = torch.cat([globalfeat.expand(-1, -1, num_views, -1), rgb_feat, neuray_feat], dim=-1)  # [n_rays, n_samples, n_views, 5*n_feat+n_neuray]
         x = self.base_fc(x)
 
         x_vis = self.vis_fc(x * weight)

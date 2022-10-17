@@ -7,7 +7,7 @@ import torch
 from skimage.io import imsave
 from tqdm import tqdm
 
-from dataset.database import parse_database_name, get_database_split, ExampleDatabase
+from dataset.database import parse_database_name, get_database_split, ExampleDatabase, ScannetDatabase
 from dataset.train_dataset import build_src_imgs_info_select
 from network.renderer import name2network
 from utils.base_utils import load_cfg, to_cuda, color_map_backward, make_dir
@@ -160,10 +160,11 @@ def render_video_gen(database_name: str,
             if not (Path(gt_dir)/f'{qi}.jpg').exists():
                 imsave(f'{gt_dir}/{qi}.jpg',database.get_image(render_ids[qi]))
             
-            gt_sem_dir = f'data/render/{database_name}/gt_sem'
-            Path(gt_sem_dir).mkdir(exist_ok=True, parents=True)
-            if not (Path(gt_dir)/f'{qi}_sem.jpg').exists():
-                imsave(f'{gt_dir}/{qi}_sem.jpg',database.get_label(render_ids[qi]))
+            if isinstance(database, ScannetDatabase):
+                gt_sem_dir = f'data/render/{database_name}/gt_sem'
+                Path(gt_sem_dir).mkdir(exist_ok=True, parents=True)
+                if not (Path(gt_dir)/f'{qi}_sem.jpg').exists():
+                    imsave(f'{gt_dir}/{qi}_sem.jpg',database.get_label(render_ids[qi]))
 
 def render_video_ft(database_name, cfg_fn, pose_type, pose_fn, render_depth=False, ray_num=4096, rb=0, re=-1):
     # init network

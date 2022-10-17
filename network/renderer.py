@@ -181,8 +181,11 @@ class NeuralRayBaseRenderer(nn.Module):
         prj_dict = self.get_img_feats(ref_imgs_info, prj_dict)
 
         hit_prob_nr, colors_nr, pixel_colors_nr, sem_logits = self.network_rendering(prj_dict, que_dir, is_fine)
-        outputs={'pixel_colors_nr': pixel_colors_nr, 'hit_prob_nr': hit_prob_nr, 'sem_logits_nr': sem_logits}
-
+        outputs={'pixel_colors_nr': pixel_colors_nr, 'hit_prob_nr': hit_prob_nr}
+        
+        if sem_logits is not None:
+            outputs['sem_logits_nr'] = sem_logits
+            
         # direct rendering
         if self.cfg['use_dr_prediction']:
             hit_prob_dr, colors_dr, pixel_colors_dr = self.direct_rendering(prj_dict, que_dir, colors_nr)

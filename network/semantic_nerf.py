@@ -157,6 +157,9 @@ class Semantic_NeRF(nn.Module):
             outputs = self.output_linear(h)
 
         if show_endpoint is False:
-            return outputs
+            _outputs = torch.mean(outputs, dtype=torch.float32, dim=2)
+            return _outputs
         else:
-            return torch.cat([outputs, h_feat], -1)
+            _outputs = torch.mean(outputs, dtype=torch.float32, dim=2) 
+            _h_feat  = torch.mean(h_feat, dtype=torch.float32, dim=2)
+            return torch.cat([_outputs, _h_feat], -1)
